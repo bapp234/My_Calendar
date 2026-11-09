@@ -42,7 +42,7 @@ jobs:
         if: steps.wrapper.outputs.has == 'false'
         uses: gradle/actions/setup-gradle@v4
         with:
-          gradle-version: '8.10.2'
+          gradle-version: '9.3.1'
 
       - name: Build debug APK (wrapper)
         if: steps.wrapper.outputs.has == 'true'
