@@ -83,18 +83,20 @@ class AlarmReceiver : BroadcastReceiver() {
 
         val (currentTask, nextTask) = ScheduleRepository.getCurrentAndNextTask(Calendar.getInstance())
 
-        if (settings.ongoingNotificationEnabled && currentTask != null) {
-            val now = Calendar.getInstance()
-            val currentMinutes = now.get(Calendar.HOUR_OF_DAY) * 60 + now.get(Calendar.MINUTE)
-            val diffMins = (currentTask.endMinutesOfDay - currentMinutes).coerceAtLeast(0)
+        val now = Calendar.getInstance()
+        val currentMinutes = now.get(Calendar.HOUR_OF_DAY) * 60 + now.get(Calendar.MINUTE)
+        val shouldShow = NotificationHelper.shouldDisplayOngoingNotification(settings, currentTask, nextTask, currentMinutes)
+
+        if (shouldShow) {
+            val diffMins = ((currentTask?.endMinutesOfDay ?: currentMinutes) - currentMinutes).coerceAtLeast(0)
             val remainingText = if (diffMins >= 60) {
                 "${diffMins / 60}h ${diffMins % 60}p"
             } else {
                 "${diffMins}p"
             }
             NotificationHelper.updateOngoingNotification(context, currentTask, nextTask, remainingText)
-        } else if (!settings.ongoingNotificationEnabled) {
-            NotificationHelper.updateOngoingNotification(context, null, null, "")
+        } else {
+            NotificationHelper.cancelOngoingNotification(context)
         }
         RoutineGlanceWidgetReceiver.updateAllWidgets(context)
     }

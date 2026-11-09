@@ -214,6 +214,12 @@ fun MainAppContainer(viewModel: ScheduleViewModel = viewModel()) {
                     settings = settings,
                     onUpdateGlobalReminder = { viewModel.updateGlobalReminderMinutes(it) },
                     onUpdateOngoingNotification = { viewModel.updateOngoingNotificationEnabled(it) },
+                    onUpdateOngoingDisplayMode = { viewModel.updateOngoingDisplayMode(it) },
+                    onUpdateOngoingBeforeEndMinutes = { viewModel.updateOngoingBeforeEndMinutes(it) },
+                    onUpdateOngoingBeforeNextMinutes = { viewModel.updateOngoingBeforeNextMinutes(it) },
+                    onUpdateOngoingUpdateFrequency = { viewModel.updateOngoingUpdateFrequency(it) },
+                    onToggleOngoingCategory = { viewModel.toggleOngoingCategory(it) },
+                    onSelectAllOngoingCategories = { viewModel.selectAllOngoingCategories(it) },
                     onUpdateCategorySetting = { catId, enabled, reminder ->
                         viewModel.updateCategorySetting(catId, enabled, reminder)
                     },

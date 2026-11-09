@@ -8,6 +8,8 @@ import com.example.alarm.AlarmScheduler
 import com.example.data.PreferencesRepository
 import com.example.data.ScheduleRepository
 import com.example.model.AppSettings
+import com.example.model.OngoingDisplayMode
+import com.example.model.OngoingUpdateFrequency
 import com.example.model.ScheduleItem
 import com.example.notification.NotificationHelper
 import com.example.util.ImageStorageManager
@@ -46,11 +48,34 @@ class ScheduleViewModel(application: Application) : AndroidViewModel(application
     private val _currentTaskState = MutableStateFlow(calculateCurrentTaskState())
     val currentTaskState: StateFlow<CurrentTaskState> = _currentTaskState.asStateFlow()
 
+    private var lastOngoingTaskId: String? = null
+    private var lastOngoingUpdateMinute: Int = -1
+
     init {
         // Ticking loop every 1 second for live countdown
         viewModelScope.launch {
             while (isActive) {
-                _currentTaskState.value = calculateCurrentTaskState()
+                val newState = calculateCurrentTaskState()
+                _currentTaskState.value = newState
+
+                val currentSettings = prefsRepo.loadSettings()
+                if (currentSettings.ongoingNotificationEnabled) {
+                    val now = Calendar.getInstance()
+                    val curMin = now.get(Calendar.MINUTE)
+                    val curTaskId = newState.currentTask?.id
+
+                    val shouldUpdate = when (currentSettings.ongoingUpdateFrequency) {
+                        OngoingUpdateFrequency.ON_CHANGE_ONLY -> curTaskId != lastOngoingTaskId
+                        OngoingUpdateFrequency.EVERY_1_MIN -> curTaskId != lastOngoingTaskId || curMin != lastOngoingUpdateMinute
+                        OngoingUpdateFrequency.EVERY_5_MIN -> curTaskId != lastOngoingTaskId || (curMin % 5 == 0 && curMin != lastOngoingUpdateMinute)
+                        OngoingUpdateFrequency.EVERY_15_MIN -> curTaskId != lastOngoingTaskId || (curMin % 15 == 0 && curMin != lastOngoingUpdateMinute)
+                    }
+
+                    if (shouldUpdate) {
+                        triggerOngoingNotificationNow()
+                    }
+                }
+
                 delay(1000)
             }
         }
@@ -154,9 +179,57 @@ class ScheduleViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun triggerOngoingNotificationNow() {
-        val (current, next) = ScheduleRepository.getCurrentAndNextTask(Calendar.getInstance())
-        val remText = _currentTaskState.value.remainingFormatted
-        NotificationHelper.updateOngoingNotification(getApplication(), current, next, remText)
+        val now = Calendar.getInstance()
+        val currentMinutesOfDay = now.get(Calendar.HOUR_OF_DAY) * 60 + now.get(Calendar.MINUTE)
+        val currentSettings = prefsRepo.loadSettings()
+        val (current, next) = ScheduleRepository.getCurrentAndNextTask(now)
+
+        val shouldShow = NotificationHelper.shouldDisplayOngoingNotification(
+            settings = currentSettings,
+            currentTask = current,
+            nextTask = next,
+            currentMinutesOfDay = currentMinutesOfDay
+        )
+
+        if (shouldShow) {
+            val remText = _currentTaskState.value.remainingFormatted
+            NotificationHelper.updateOngoingNotification(getApplication(), current, next, remText)
+            lastOngoingTaskId = current?.id
+            lastOngoingUpdateMinute = now.get(Calendar.MINUTE)
+        } else {
+            NotificationHelper.cancelOngoingNotification(getApplication())
+        }
+    }
+
+    fun updateOngoingDisplayMode(mode: OngoingDisplayMode) {
+        prefsRepo.updateOngoingDisplayMode(mode)
+        triggerOngoingNotificationNow()
+    }
+
+    fun updateOngoingBeforeEndMinutes(minutes: Int) {
+        prefsRepo.updateOngoingBeforeEndMinutes(minutes)
+        triggerOngoingNotificationNow()
+    }
+
+    fun updateOngoingBeforeNextMinutes(minutes: Int) {
+        prefsRepo.updateOngoingBeforeNextMinutes(minutes)
+        triggerOngoingNotificationNow()
+    }
+
+    fun updateOngoingUpdateFrequency(frequency: OngoingUpdateFrequency) {
+        prefsRepo.updateOngoingUpdateFrequency(frequency)
+        triggerOngoingNotificationNow()
+    }
+
+    fun toggleOngoingCategory(categoryId: String) {
+        prefsRepo.toggleOngoingCategory(categoryId)
+        triggerOngoingNotificationNow()
+    }
+
+    fun selectAllOngoingCategories(all: Boolean) {
+        val set = if (all) com.example.model.TaskCategory.entries.map { it.name }.toSet() else emptySet()
+        prefsRepo.updateOngoingIncludedCategories(set)
+        triggerOngoingNotificationNow()
     }
 
     fun updateCategorySetting(categoryId: String, enabled: Boolean, reminderMinutes: Int) {

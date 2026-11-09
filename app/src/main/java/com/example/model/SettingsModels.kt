@@ -1,5 +1,18 @@
 package com.example.model
 
+enum class OngoingDisplayMode(val label: String) {
+    ALWAYS("Luôn hiện"),
+    BEFORE_END("Chỉ hiện trước giờ kết thúc"),
+    BEFORE_NEXT("Chỉ hiện khi sắp đến việc tiếp theo")
+}
+
+enum class OngoingUpdateFrequency(val minutes: Int, val label: String) {
+    EVERY_1_MIN(1, "1 phút"),
+    EVERY_5_MIN(5, "5 phút"),
+    EVERY_15_MIN(15, "15 phút"),
+    ON_CHANGE_ONLY(0, "Chỉ khi chuyển việc mới")
+}
+
 data class CategorySetting(
     val categoryId: String,
     val enabled: Boolean = true,
@@ -8,7 +21,12 @@ data class CategorySetting(
 
 data class AppSettings(
     val globalReminderMinutes: Int = 10,
-    val ongoingNotificationEnabled: Boolean = true,
+    val ongoingNotificationEnabled: Boolean = false, // Default is false as requested
+    val ongoingDisplayMode: OngoingDisplayMode = OngoingDisplayMode.ALWAYS,
+    val ongoingBeforeEndMinutes: Int = 15, // 15, 30, 60
+    val ongoingBeforeNextMinutes: Int = 15, // 15, 30, 60
+    val ongoingUpdateFrequency: OngoingUpdateFrequency = OngoingUpdateFrequency.EVERY_1_MIN,
+    val ongoingIncludedCategories: Set<String> = TaskCategory.entries.map { it.name }.toSet(),
     val categorySettings: Map<String, CategorySetting> = emptyMap()
 ) {
     fun getEffectiveReminderMinutes(categoryId: String): Int {
@@ -21,6 +39,10 @@ data class AppSettings(
 
     fun isCategoryNotificationEnabled(categoryId: String): Boolean {
         return categorySettings[categoryId]?.enabled ?: true
+    }
+
+    fun isCategoryIncludedInOngoing(categoryId: String): Boolean {
+        return ongoingIncludedCategories.contains(categoryId)
     }
 }
 
@@ -39,4 +61,9 @@ object ReminderOptions {
             else -> "Trước $minutes phút"
         }
     }
+}
+
+object OngoingTimeOptions {
+    val BEFORE_END_OPTIONS = listOf(15, 30, 60)
+    val BEFORE_NEXT_OPTIONS = listOf(15, 30, 60)
 }

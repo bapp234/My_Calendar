@@ -70,19 +70,32 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import com.example.model.AppSettings
 import com.example.model.CategorySetting
+import com.example.model.OngoingDisplayMode
+import com.example.model.OngoingTimeOptions
+import com.example.model.OngoingUpdateFrequency
 import com.example.model.ReminderOptions
 import com.example.model.TaskCategory
 import com.example.util.ImageStorageManager
 import java.io.File
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun SettingsScreen(
     settings: AppSettings,
     onUpdateGlobalReminder: (Int) -> Unit,
     onUpdateOngoingNotification: (Boolean) -> Unit,
+    onUpdateOngoingDisplayMode: (OngoingDisplayMode) -> Unit,
+    onUpdateOngoingBeforeEndMinutes: (Int) -> Unit,
+    onUpdateOngoingBeforeNextMinutes: (Int) -> Unit,
+    onUpdateOngoingUpdateFrequency: (OngoingUpdateFrequency) -> Unit,
+    onToggleOngoingCategory: (String) -> Unit,
+    onSelectAllOngoingCategories: (Boolean) -> Unit,
     onUpdateCategorySetting: (categoryId: String, enabled: Boolean, reminderMinutes: Int) -> Unit,
     onSaveCategoryPhoto: (categoryId: String, uri: Uri) -> Unit,
     onDeleteCategoryPhoto: (categoryId: String) -> Unit,
@@ -346,10 +359,195 @@ fun SettingsScreen(
                     }
 
                     if (settings.ongoingNotificationEnabled) {
+                        Divider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+                        // 1. Kiểu hiển thị
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text(
+                                text = "Kiểu hiển thị thông báo",
+                                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                                color = MaterialTheme.colorScheme.primary
+                            )
+
+                            // Option: Luôn hiện
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { onUpdateOngoingDisplayMode(OngoingDisplayMode.ALWAYS) }
+                                    .padding(vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                RadioButton(
+                                    selected = settings.ongoingDisplayMode == OngoingDisplayMode.ALWAYS,
+                                    onClick = { onUpdateOngoingDisplayMode(OngoingDisplayMode.ALWAYS) }
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Column {
+                                    Text("Luôn hiện", fontWeight = FontWeight.SemiBold)
+                                    Text("Hiển thị liên tục việc đang diễn ra hoặc thời gian tự do", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                            }
+
+                            // Option: Chỉ hiện trong X phút trước giờ kết thúc việc đang diễn ra
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { onUpdateOngoingDisplayMode(OngoingDisplayMode.BEFORE_END) }
+                                    .padding(vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                RadioButton(
+                                    selected = settings.ongoingDisplayMode == OngoingDisplayMode.BEFORE_END,
+                                    onClick = { onUpdateOngoingDisplayMode(OngoingDisplayMode.BEFORE_END) }
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Column {
+                                    Text("Chỉ hiện trước giờ kết thúc việc đang làm", fontWeight = FontWeight.SemiBold)
+                                    Text("Chỉ xuất hiện khi sắp hết giờ của việc hiện tại", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                            }
+
+                            if (settings.ongoingDisplayMode == OngoingDisplayMode.BEFORE_END) {
+                                Row(
+                                    modifier = Modifier.padding(start = 40.dp, top = 2.dp, bottom = 4.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    OngoingTimeOptions.BEFORE_END_OPTIONS.forEach { mins ->
+                                        FilterChip(
+                                            selected = settings.ongoingBeforeEndMinutes == mins,
+                                            onClick = { onUpdateOngoingBeforeEndMinutes(mins) },
+                                            label = { Text("Trước $mins phút") }
+                                        )
+                                    }
+                                }
+                            }
+
+                            // Option: Chỉ hiện khi sắp đến việc tiếp theo
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { onUpdateOngoingDisplayMode(OngoingDisplayMode.BEFORE_NEXT) }
+                                    .padding(vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                RadioButton(
+                                    selected = settings.ongoingDisplayMode == OngoingDisplayMode.BEFORE_NEXT,
+                                    onClick = { onUpdateOngoingDisplayMode(OngoingDisplayMode.BEFORE_NEXT) }
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Column {
+                                    Text("Chỉ hiện khi sắp đến việc tiếp theo", fontWeight = FontWeight.SemiBold)
+                                    Text("Chỉ xuất hiện khi sắp bắt đầu công việc kế tiếp", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                            }
+
+                            if (settings.ongoingDisplayMode == OngoingDisplayMode.BEFORE_NEXT) {
+                                Row(
+                                    modifier = Modifier.padding(start = 40.dp, top = 2.dp, bottom = 4.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    OngoingTimeOptions.BEFORE_NEXT_OPTIONS.forEach { mins ->
+                                        FilterChip(
+                                            selected = settings.ongoingBeforeNextMinutes == mins,
+                                            onClick = { onUpdateOngoingBeforeNextMinutes(mins) },
+                                            label = { Text("Trước $mins phút") }
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
+                        Divider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+                        // 2. Tần suất cập nhật đồng hồ đếm ngược
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text(
+                                text = "Tần suất cập nhật đếm ngược",
+                                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                            Text(
+                                text = "Cập nhật hoàn toàn im lặng (setOnlyAlertOnce: không rung hay đổ chuông lại)",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                OngoingUpdateFrequency.entries.forEach { freq ->
+                                    FilterChip(
+                                        selected = settings.ongoingUpdateFrequency == freq,
+                                        onClick = { onUpdateOngoingUpdateFrequency(freq) },
+                                        label = { Text(freq.label, fontSize = 12.sp) },
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                }
+                            }
+                        }
+
+                        Divider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+                        // 3. Loại việc được hiện trong thông báo thường trực
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = "Loại việc được hiện",
+                                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                    Text(
+                                        text = "Chọn việc bạn muốn ghim (${settings.ongoingIncludedCategories.size}/${TaskCategory.entries.size} nhóm)",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+
+                                Row {
+                                    TextButton(onClick = { onSelectAllOngoingCategories(true) }) {
+                                        Text("Tất cả", fontSize = 12.sp)
+                                    }
+                                    TextButton(onClick = { onSelectAllOngoingCategories(false) }) {
+                                        Text("Bỏ chọn", fontSize = 12.sp)
+                                    }
+                                }
+                            }
+
+                            FlowRow(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                verticalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                TaskCategory.entries.forEach { category ->
+                                    val isSelected = settings.isCategoryIncludedInOngoing(category.name)
+                                    FilterChip(
+                                        selected = isSelected,
+                                        onClick = { onToggleOngoingCategory(category.name) },
+                                        label = {
+                                            Text("${category.emoji} ${category.displayName}", fontSize = 12.sp)
+                                        },
+                                        colors = FilterChipDefaults.filterChipColors(
+                                            selectedContainerColor = category.containerColor,
+                                            selectedLabelColor = category.onContainerColor
+                                        )
+                                    )
+                                }
+                            }
+                        }
+
+                        Divider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+                        // Test / Preview Button
                         Button(
                             onClick = {
                                 onTriggerOngoingNotificationNow()
-                                Toast.makeText(context, "Đã cập nhật thông báo thường trực! Kéo thanh thông báo xuống để xem", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, "Đã áp dụng cài đặt thông báo thường trực ngay!", Toast.LENGTH_SHORT).show()
                             },
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = MaterialTheme.colorScheme.secondary
@@ -365,7 +563,7 @@ fun SettingsScreen(
                                 modifier = Modifier.size(18.dp)
                             )
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text("Hiện / Cập nhật thông báo thường trực ngay")
+                            Text("Áp dụng & Cập nhật thông báo ngay")
                         }
                     }
                 }

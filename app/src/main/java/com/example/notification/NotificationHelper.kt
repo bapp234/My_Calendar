@@ -244,11 +244,69 @@ object NotificationHelper {
             .setContentText(subtitle)
             .setStyle(style)
             .setOngoing(true)
+            .setOnlyAlertOnce(true)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setContentIntent(contentPendingIntent)
 
         notificationManager.notify(NOTIFICATION_ID_ONGOING, builder.build())
+    }
+
+    fun shouldDisplayOngoingNotification(
+        settings: com.example.model.AppSettings,
+        currentTask: ScheduleItem?,
+        nextTask: ScheduleItem?,
+        currentMinutesOfDay: Int
+    ): Boolean {
+        if (!settings.ongoingNotificationEnabled) return false
+
+        if (currentTask != null) {
+            // Check category filtering
+            if (!settings.isCategoryIncludedInOngoing(currentTask.category.name)) {
+                return false
+            }
+
+            return when (settings.ongoingDisplayMode) {
+                com.example.model.OngoingDisplayMode.ALWAYS -> true
+                com.example.model.OngoingDisplayMode.BEFORE_END -> {
+                    val endMins = currentTask.endMinutesOfDay
+                    val diffMins = endMins - currentMinutesOfDay
+                    diffMins in 0..settings.ongoingBeforeEndMinutes
+                }
+                com.example.model.OngoingDisplayMode.BEFORE_NEXT -> {
+                    if (nextTask != null) {
+                        val nextStartMins = if (nextTask.startMinutesOfDay < currentMinutesOfDay) {
+                            nextTask.startMinutesOfDay + 24 * 60
+                        } else {
+                            nextTask.startMinutesOfDay
+                        }
+                        val diffMins = nextStartMins - currentMinutesOfDay
+                        diffMins in 0..settings.ongoingBeforeNextMinutes
+                    } else {
+                        false
+                    }
+                }
+            }
+        } else {
+            // Free time / gap
+            return when (settings.ongoingDisplayMode) {
+                com.example.model.OngoingDisplayMode.ALWAYS -> true
+                com.example.model.OngoingDisplayMode.BEFORE_END -> false
+                com.example.model.OngoingDisplayMode.BEFORE_NEXT -> {
+                    if (nextTask != null && settings.isCategoryIncludedInOngoing(nextTask.category.name)) {
+                        val nextStartMins = if (nextTask.startMinutesOfDay < currentMinutesOfDay) {
+                            nextTask.startMinutesOfDay + 24 * 60
+                        } else {
+                            nextTask.startMinutesOfDay
+                        }
+                        val diffMins = nextStartMins - currentMinutesOfDay
+                        diffMins in 0..settings.ongoingBeforeNextMinutes
+                    } else {
+                        false
+                    }
+                }
+            }
+        }
     }
 
     fun cancelOngoingNotification(context: Context) {
