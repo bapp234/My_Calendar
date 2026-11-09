@@ -1,0 +1,6 @@
+{
+  "name": "Lịch của tôi",
+  "description": "Ứng dụng lịch sinh hoạt cá nhân, nhắc việc thông minh, widget và thông báo màn hình khóa.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
